@@ -1,0 +1,21 @@
+#!/usr/bin/python
+import urllib2
+
+zeos = ['alpha', 'beta', 'gamma', 'delta', ]
+ports = {'alpha': 9100, 'beta':9101, 'gamma':9102, 'delta':9103}
+apacheConfig = open('%(directory)s/config/apacheProxy.conf', 'w')
+server = 'capricornius2.upc.es'
+
+def install(options, buildout):
+    for zeoname in zeos:
+        instancies = urllib2.urlopen('http://'+server+'/instancies/'+zeoname, None)
+    
+        apacheConfig.write('\n# Configuracions per instancies del entorn '+ zeoname + '\n')
+        for instancia in instancies:
+            instancia = instancia.split()
+            # ha de tindre la forma: (^|/.*)dama/dama($|/.*) i la posterior replace rule: $1dama/dama$2
+            #apacheConfig.write("RewriteRule (^|/.*)"+instancia[0]+"/"+instancia[0]+"($|/.*) http://localhost:"+str(ports[zeoname])+"$1"+instancia[0]+"/"+instancia[0]+"$2 [P]\n")
+            apacheConfig.write("RewriteRule (^|/.*)"+instancia[0]+"($|/.*) http://localhost:"+str(ports[zeoname])+"$1"+instancia[0]+"$2 [P]\n")
+
+    instancies.close()
+    apacheConfig.close()

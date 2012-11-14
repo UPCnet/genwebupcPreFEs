@@ -1,0 +1,97 @@
+# This is the default haproxy load balancing configuration. It uses will
+# load balance four ZEO clients.
+#
+# Note that balancer.conf is generated from balancer.conf.template.
+
+global
+  log 127.0.0.1 local6
+  
+  user ${users:balancer}
+  group ${balancer-config:group}
+  maxconn ${balancer-config:maxconn}
+  ulimit-n 65536
+  daemon
+  nbproc 1
+
+defaults
+  log global
+  mode http
+
+  # The zope instances have maxconn 1, and it is important that
+  # unused/idle connections are closed as soon as possible.
+  option httpclose
+  # Remove requests from the queue if people press stop button
+  option abortonclose
+  #  option httplog
+  #  option dontlognull
+  retries 3
+  option redispatch
+  monitor-uri /haproxy-ping
+
+  timeout connect 7s
+  timeout queue   300s
+  timeout client  300s
+  timeout server  300s
+
+  stats enable
+  stats uri /haproxy-status
+  stats refresh 5s
+  stats realm Haproxy\ statistics
+
+frontend SPInbound
+  bind ${hosts:balancer}:${ports:balancer-sp}
+  default_backend SalaPremsa
+  capture cookie __ac len 10
+  option httplog
+  log 127.0.0.1 local6
+
+frontend ROInbound
+  bind ${hosts:balancer}:${ports:balancer-ro}
+  default_backend GenwebUPC-RO
+
+  capture cookie __ac len 10
+  option httplog
+  log 127.0.0.1 local6
+
+frontend RWInbound
+  bind ${hosts:balancer}:${ports:balancer-rw}
+  default_backend GenwebUPC-RW
+
+  capture cookie __ac len 10
+  option httplog
+  log 127.0.0.1 local6
+
+# Load balancing over the zope instances
+
+backend SalaPremsa
+  appsession __ac len 32 timeout 1d
+  balance roundrobin
+  cookie serverid insert nocache indirect
+  option httpchk GET /
+  server ${hosts:zopeclient-sp1}:${ports:zopeclient-sp1} ${hosts:zopeclient-sp1}:${ports:zopeclient-sp1} cookie zsp1 check maxconn 1 maxqueue 2 rise 1
+  server ${hosts:zopeclient-sp2}:${ports:zopeclient-sp2} ${hosts:zopeclient-sp2}:${ports:zopeclient-sp2} cookie zsp2 check maxconn 1 maxqueue 2 rise 1
+
+
+backend GenwebUPC-RO
+  
+  appsession __ac len 32 timeout 1d
+  balance roundrobin
+  cookie serverid insert nocache indirect
+  option httpchk GET /
+
+  server  ${hosts:zopeclient-ro1}:${ports:zopeclient-ro1} ${hosts:zopeclient-ro1}:${ports:zopeclient-ro1} cookie z8301 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-ro2}:${ports:zopeclient-ro2} ${hosts:zopeclient-ro2}:${ports:zopeclient-ro2} cookie z8302 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-ro3}:${ports:zopeclient-ro3} ${hosts:zopeclient-ro3}:${ports:zopeclient-ro3} cookie z8303 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-ro4}:${ports:zopeclient-ro4} ${hosts:zopeclient-ro4}:${ports:zopeclient-ro4} cookie z8304 check maxconn 2 maxqueue 4 rise 1
+
+backend GenwebUPC-RW
+  
+  appsession __ac len 32 timeout 1d
+  balance roundrobin
+  cookie serverid insert nocache indirect
+  option httpchk GET /
+
+  server  ${hosts:zopeclient-rw1}:${ports:zopeclient-rw1} ${hosts:zopeclient-rw1}:${ports:zopeclient-rw1} cookie z8301 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-rw2}:${ports:zopeclient-rw2} ${hosts:zopeclient-rw2}:${ports:zopeclient-rw2} cookie z8302 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-rw3}:${ports:zopeclient-rw3} ${hosts:zopeclient-rw3}:${ports:zopeclient-rw3} cookie z8303 check maxconn 2 maxqueue 4 rise 1
+  server  ${hosts:zopeclient-rw4}:${ports:zopeclient-rw4} ${hosts:zopeclient-rw4}:${ports:zopeclient-rw4} cookie z8304 check maxconn 2 maxqueue 4 rise 1
